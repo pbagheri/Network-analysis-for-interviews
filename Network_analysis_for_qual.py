@@ -33,15 +33,21 @@ print(dir_path)
 
 data = pd.read_excel(dir_path + '/0_input_data/2090 - XP Manifesto - Content Analysis v02.xlsx')
 data.columns
+guide = pd.read_excel(dir_path + '/0_input_data/2090 - XP Gamer - Qual Guide v01.xlsx', header=None)
+guide.columns
 
 # =============================================================================
-# Functions
+# General Functions
 # =============================================================================
 def text_prep(mess):
     tokens = word_tokenize(str(mess))
     words = [word.lower() for word in tokens if word.isalnum()]
     words = [w for w in words if not w in stop_words]
     return words
+
+# determines whetehr a string contains a character 
+def is_in(ch,st):
+   return not(ch not in st) 
 
 # =============================================================================
 # Data Exploration and preparation
@@ -50,16 +56,46 @@ data.Author.unique()
 len(data.Author.unique())
 # Matt and Simon are moderators, so we'll leave them out of the analysis
 
+moderator_mess = data['Message'][data['Author Type'] == 'Moderator']
+moderator_mess.index
+
+respondent_mess = data['Message'][data['Author Type'] == 'Respondent']
+respondent_mess.index
+
+moderator_questions = moderator_mess[moderator_mess.apply(lambda x: is_in('?',x))]
+moderator_questions.index
+moderator_questions.shape
+
+
+
+
+
+for i in range(len(moderator_questions.index)):
+    if i != len(moderator_questions.index) - 1:
+        ans_range_inds = list(range(moderator_questions.index[i]+1,moderator_questions.index[i+1]))
+        print(ans_range_inds)
+    else:
+        ans_range_inds = list(range(moderator_questions.index[i]+1,10000))
+        print(ans_range_inds)
+        
+        
+moderator_questions.unique().shape
+moderator_questions.unique
+unique_questions_indeces = []
+for i in moderator_questions.index:
+    inds = []
+
 resps = list(data.Author.unique())[2:]
 len(resps)
 
-resp_stenteces = pd.DataFrame(columns = ['sentences', 'words', 'num_words', 'num_imp_words' ,'tfidf'], index = resps)
+resp_sentences = pd.DataFrame(columns = ['raw_sentences','clean_sentences', 'words', 'num_words', 'num_sig_words' ,'tfidf'], index = resps)
 
 for r in resps:
     mod_sents = data.Message[data.Author == r][1:-1].apply(str)
     sents = mod_sents.str.cat(sep=' ') #[1:-1] is to remove the enter and leave chat statements
+    resp_sentences['raw_sentences'].loc[r] = sents
     clean_sents = text_prep(sents)
-    resp_stenteces['sentences'].loc[r] = clean_sents
+    resp_sentences['clean_sentences'].loc[r] = clean_sents
 
 
 '''
@@ -72,7 +108,7 @@ corpus = [
 
 # I need to add misspelling correction
 
-corpus = list(resp_stenteces['sentences'].apply(lambda x: ' '.join(x)))
+corpus = list(resp_sentences['clean_sentences'].apply(lambda x: ' '.join(x)))
 
 tf_idf_vect = TfidfVectorizer()
 final_tf_idf = tf_idf_vect.fit_transform(corpus)
@@ -90,38 +126,14 @@ for i in word_tfidf.index:
     temp = temp[temp[i] > 0.1]
     temp['words'] = temp.index
     temp['tups'] = list(zip(temp['words'], temp[i]))
-    resp_stenteces['words'].iloc[i] = list(temp['words'])
-    resp_stenteces['num_words'].iloc[i] = len(resp_stenteces['sentences'].iloc[i])
-    resp_stenteces['num_imp_words'].iloc[i] = len(list(temp['words']))
-    resp_stenteces['tfidf'].iloc[i] = list(temp['tups'])
+    resp_sentences['words'].iloc[i] = list(temp['words'])
+    resp_sentences['num_words'].iloc[i] = len(resp_sentences['clean_sentences'].iloc[i])
+    resp_sentences['num_sig_words'].iloc[i] = len(list(temp['words']))
+    resp_sentences['tfidf'].iloc[i] = list(temp['tups'])
+
+resp_sentences['sig_word_ratio'] = resp_sentences['num_sig_words']/resp_sentences['num_words']
 
 
-
-
-'''
-#Applying TF-IDF scores to the model vectors
-tfidf_sent_vectors = []; # the tfidf-w2v for each sentence/review is stored in this list
-row=0;
-errors=0
-for sent in tqdm(tokens): # for each review/sentence
-    sent_vec = np.zeros(100) # as word vectors are of zero length
-    weight_sum =0; # num of words with a valid vector in the sentence/review
-    for word in sent: # for each word in a review/sentence
-        try:
-            vec = model.wv[word]
-            # obtain the tf_idfidf of a word in a sentence/review
-            tfidf = final_tf_idf [row, tfidf_feat.index(word)]
-            sent_vec += (vec * tfidf)
-            weight_sum += tfidf
-        except:
-            errors =+1
-            pass
-    sent_vec /= weight_sum
-    #print(np.isnan(np.sum(sent_vec)))
-    tfidf_sent_vectors.append(sent_vec)
-    row += 1
-    print('errors noted: '+str(errors))
-'''
 
 # =============================================================================
 # Network Analysis
@@ -136,4 +148,4 @@ for sent in tqdm(tokens): # for each review/sentence
 # =============================================================================
 # Outputs
 # =============================================================================
-resp_stenteces.to_csv(dir_path + '/0_output/2090_qual_data.csv')
+resp_sentences.to_csv(dir_path + '/0_output/2090_qual_data.csv')
