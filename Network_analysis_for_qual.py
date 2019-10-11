@@ -34,7 +34,7 @@ print(dir_path)
 data = pd.read_excel(dir_path + '/0_input_data/2090 - XP Manifesto - Content Analysis v02.xlsx')
 data.columns
 guide = pd.read_excel(dir_path + '/0_input_data/2090 - XP Gamer - Qual Guide v01.xlsx', header=None)
-guide.columns
+guide.columns = ['indicator','question']
 
 # =============================================================================
 # General Functions
@@ -67,6 +67,26 @@ moderator_questions.index
 moderator_questions.shape
 
 
+guide.head()
+
+questions_from_guide_indeces = []
+for i in moderator_questions.index:
+    if len(guide['question'][guide['question'] == moderator_questions.loc[i]])> 0:
+        questions_from_guide_indeces.append(i)
+        
+
+response_col_names = ['q' + str(x) for x in questions_from_guide_indeces]
+
+organized_responses = pd.DataFrame(columns = response_col_names, index = range(200))
+
+for c in range(len(questions_from_guide_indeces)):
+    if c < len(questions_from_guide_indeces)-1:
+        organized_responses['q' + str(questions_from_guide_indeces[c])] = pd.Series(respondent_mess.loc[questions_from_guide_indeces[c]+1: questions_from_guide_indeces[c+1]]).reset_index(drop=True)
+    else:
+        organized_responses['q' + str(questions_from_guide_indeces[c])] = pd.Series(respondent_mess.loc[questions_from_guide_indeces[c]+1: max(respondent_mess.index)+1]).reset_index(drop=True)
+
+
+organized_responses.head()
 
 
 
@@ -79,14 +99,7 @@ for i in range(len(moderator_questions.index)):
         print(ans_range_inds)
         
         
-moderator_questions.unique().shape
-moderator_questions.unique
-unique_questions_indeces = []
-for i in moderator_questions.index:
-    inds = []
 
-resps = list(data.Author.unique())[2:]
-len(resps)
 
 resp_sentences = pd.DataFrame(columns = ['raw_sentences','clean_sentences', 'words', 'num_words', 'num_sig_words' ,'tfidf'], index = resps)
 
@@ -138,7 +151,7 @@ resp_sentences['sig_word_ratio'] = resp_sentences['num_sig_words']/resp_sentence
 # =============================================================================
 # Network Analysis
 # =============================================================================
-# ideas: connect people who use words with related meanings (using word2vec, or a more suitable embedded vector set)?
+# ideas: words as nodes and connections based on words that appear in the same context.
 
 
 
@@ -149,3 +162,4 @@ resp_sentences['sig_word_ratio'] = resp_sentences['num_sig_words']/resp_sentence
 # Outputs
 # =============================================================================
 resp_sentences.to_csv(dir_path + '/0_output/2090_qual_data.csv')
+organized_responses.to_csv(dir_path + '/0_output/2090_organized_responses.csv')
